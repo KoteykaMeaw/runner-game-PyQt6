@@ -1,10 +1,9 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QPushButton, QVBoxLayout
 from PyQt6.QtGui import QPainter, QBrush, QColor, QPixmap
-from PyQt6.QtCore import QRect, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QUrl, QRect, Qt, QTimer, pyqtSignal
 import random
-import pygame
-pygame.init()
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QSoundEffect
 class GameObject:
     def __init__(self, x, y, width, height, color, image,damage):
         self.x = x
@@ -38,8 +37,9 @@ class Player(GameObject):
         self.jump_velocity = 15
         self.speed = 1
         self.groundY = 250
-        self.jumpSnd = pygame.mixer.Sound('jump.mp3')
-        self.damageSnd = pygame.mixer.Sound('damage.mp3')
+        self.jumpSnd = "jump.mp3"
+        self.damageSnd = "damage.mp3"
+        self.MusicBackground = "background.mp3"
         self.IFramed = False
         self.iFrameTimer = QTimer()
         self.iFrameTimer.timeout.connect(self.endIFrame)
@@ -48,13 +48,25 @@ class Player(GameObject):
         self.crouchImage = QPixmap("ohgod.png")
         self.image = image
 
+        self.AudioPlayer = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.AudioPlayer.setAudioOutput(self.audio_output)
+
+        self.background_music = QMediaPlayer()
+        self.background_music_output = QAudioOutput()
+        self.background_music.setAudioOutput(self.background_music_output)
 
         self.crouchOffset = self.normalImage.height() - self.crouchImage.height()
+
+        self.background_music.setSource(QUrl.fromLocalFile(self.MusicBackground))
+        self.background_music_output.setVolume(0.2)
+        self.background_music.play()
 
     def jump(self):
         if not self.is_jumping and not self.is_crouching:
             self.is_jumping = True
-            self.jumpSnd.play()
+            self.AudioPlayer.setSource(QUrl.fromLocalFile(self.jumpSnd))
+            self.AudioPlayer.play()
 
 
     def crouch(self):
@@ -99,6 +111,7 @@ class RunnerGame(QWidget):
         super().__init__()
         self.setWindowTitle("Runner Game")
         self.setGeometry(100, 100, 600, 400)
+        self.setFixedSize(600, 400)
 
         self.player = Player(50, 250, 20, 40, (0, 255, 0), QPixmap("plrNew.png"),0)
         self.obstacles = []
@@ -108,6 +121,7 @@ class RunnerGame(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.updater)
         self.timer.start(1000 // 60)
+
 
         self.spawnObstacleTimer = QTimer()
         self.spawnObstacleTimer.timeout.connect(self.spawnObstacle)
@@ -145,6 +159,7 @@ class RunnerGame(QWidget):
 
         self.skyIMG = QPixmap("sky.png")
         self.groundIMG = QPixmap("grassNew.png")
+
 
 
 
@@ -209,7 +224,8 @@ class RunnerGame(QWidget):
             print("Collides: ", self.player_rect.intersects(obstacle_rect))
 
             if self.player_rect.intersects(obstacle_rect) and self.game_over != True and self.player.IFramed == False:
-                self.player.damageSnd.play()
+                self.player.AudioPlayer.setSource(QUrl.fromLocalFile(self.player.damageSnd))
+                self.player.AudioPlayer.play()
                 self.player.Health -= obstacle.damage
                 self.player.startIFrame()
 
@@ -265,6 +281,7 @@ class RunnerGame(QWidget):
         self.obstacleSpeed = random.randint(3, 10)
 
     def show_game_over_screen(self):
+        self.player.background_music.stop()
         self.game_over_screen.show()
 
     def restart_game(self):
@@ -280,9 +297,15 @@ class RunnerGame(QWidget):
             self.player.Health = 100
             self.hp_label.setText(f"Health: {self.player.Health}")
 
+            self.player.background_music.setSource(QUrl.fromLocalFile(self.player.MusicBackground))
+            self.player.background_music.play()
+
             self.game_over_screen.hide()
 
             self.setFocus()
+
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
